@@ -1,0 +1,45 @@
+smart-helmet/
+├── admin/
+│   ├── dashboard.php
+│   ├── users.php
+│   ├── view-logs.php
+│   └── auth/
+│       ├── login.php
+│       └── logout.php
+├── user/
+│   ├── dashboard.php
+│   ├── map.php
+│   ├── alerts.php
+│   ├── logs.php
+│   ├── emergency.php
+│   └── auth/
+│       ├── register.php
+│       ├── login.php
+│       └── logout.php
+├── backend/
+│   ├── db.php
+│   ├── authController.php
+│   ├── sensorData.php
+│   ├── alertsController.php
+│   ├── gpsHandler.php
+│   ├── logController.php
+│   ├── emergencyController.php
+│   └── autocomplete.php
+├── assets/
+│   ├── css/
+│   │   └── style.css
+│   ├── js/
+│   │   ├── dashboard.js
+│   │   ├── alerts.js
+│   │   ├── gps.js
+│   │   └── pwa.js
+│   └── images/
+│       └── logo.png
+├── pwa/
+│   ├── manifest.json
+│   └── service-worker.js
+├── config.php
+├── .htaccess
+├── index.php
+├── README.md
+└── LICENSE

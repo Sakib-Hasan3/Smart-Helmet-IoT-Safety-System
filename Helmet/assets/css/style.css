@@ -1,0 +1,23 @@
+body {
+  background-color: #0d1117;
+  color: #ffffff;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+a, a:hover {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.container {
+  max-width: 800px;
+  margin: auto;
+}
+
+.table th, .table td {
+  vertical-align: middle;
+}
+
+.btn {
+  border-radius: 5px;
+}
