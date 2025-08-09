@@ -1,0 +1,1 @@
+/* Placeholder: Add a biker with helmet image to assets/images/ and update the src below. */
