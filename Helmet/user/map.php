@@ -13,8 +13,8 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
-$latitude = $row['latitude'] ?? 0;
-$longitude = $row['longitude'] ?? 0;
+$latitude = $row['latitude'] ?? 23.8103; // Default to Dhaka coordinates
+$longitude = $row['longitude'] ?? 90.4125;
 $gps_status = $row['gps_status'] ?? 'Unknown';
 $timestamp = $row['timestamp'] ?? 'N/A';
 ?>
@@ -22,33 +22,45 @@ $timestamp = $row['timestamp'] ?? 'N/A';
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GPS Location | Smart Helmet</title>
+  <title>Live Location | Smart Helmet</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     :root {
       --primary: #4361ee;
+      --primary-light: #eef2ff;
       --secondary: #3f37c9;
       --light: #f8f9fa;
       --dark: #212529;
       --gray: #6c757d;
       --white: #ffffff;
+      --success: #28a745;
+      --warning: #ffc107;
+      --danger: #dc3545;
+      --border-radius: 8px;
+      --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      --transition: all 0.3s ease;
     }
     
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--white);
       color: var(--dark);
+      line-height: 1.6;
     }
     
     .sidebar {
-      width: 260px;
+      width: 280px;
       background: var(--white);
       position: fixed;
       height: 100vh;
       padding: 1.5rem;
       border-right: 1px solid rgba(0,0,0,0.05);
-      box-shadow: 0 0 20px rgba(0,0,0,0.03);
+      box-shadow: var(--box-shadow);
+      z-index: 100;
+      transition: var(--transition);
     }
     
     .brand {
@@ -70,6 +82,7 @@ $timestamp = $row['timestamp'] ?? 'N/A';
       margin: 0;
       font-weight: 700;
       color: var(--primary);
+      font-size: 1.2rem;
     }
     
     .nav-link {
@@ -78,69 +91,199 @@ $timestamp = $row['timestamp'] ?? 'N/A';
       gap: 10px;
       color: var(--gray);
       padding: 0.75rem 1rem;
-      border-radius: 8px;
+      border-radius: var(--border-radius);
       margin-bottom: 0.5rem;
-      transition: all 0.2s ease;
+      transition: var(--transition);
       text-decoration: none;
+      font-weight: 500;
     }
     
     .nav-link:hover, .nav-link.active {
-      background: rgba(67, 97, 238, 0.1);
+      background: var(--primary-light);
       color: var(--primary);
     }
     
+    .nav-link i {
+      width: 20px;
+      text-align: center;
+    }
+    
     .content {
-      margin-left: 260px;
+      margin-left: 280px;
       padding: 2rem;
+      background-color: var(--white);
+      min-height: 100vh;
     }
     
     .navbar {
-      margin-left: 260px;
+      margin-left: 280px;
       background: var(--white);
       padding: 1rem 2rem;
       border-bottom: 1px solid rgba(0,0,0,0.05);
       box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+      position: sticky;
+      top: 0;
+      z-index: 99;
     }
     
     .card {
       border: none;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      transition: var(--transition);
+      background-color: var(--white);
     }
     
     .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .card-header {
+      background-color: var(--white);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      padding: 1.5rem;
+    }
+    
+    .card-body {
+      padding: 2rem;
+    }
+    
+    .map-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    
+    .map-icon {
+      font-size: 2rem;
+      color: var(--primary);
+      margin-right: 1.5rem;
+      background: var(--primary-light);
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
     }
     
     #map {
-      height: 400px;
+      height: 500px;
       width: 100%;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      z-index: 1;
+    }
+    
+    .location-info {
+      background: var(--primary-light);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    
+    .info-item {
+      margin-bottom: 1rem;
+    }
+    
+    .info-label {
+      font-weight: 600;
+      color: var(--gray);
+      margin-bottom: 0.25rem;
+      font-size: 0.9rem;
+    }
+    
+    .info-value {
+      font-size: 1.1rem;
+      font-weight: 500;
     }
     
     .gps-status {
-      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-weight: 500;
+      font-size: 0.85rem;
     }
     
     .gps-status.active {
-      color: #28a745;
+      background: rgba(40, 167, 69, 0.1);
+      color: var(--success);
     }
     
     .gps-status.inactive {
-      color: #dc3545;
+      background: rgba(220, 53, 69, 0.1);
+      color: var(--danger);
     }
     
+    .refresh-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--border-radius);
+      padding: 0.75rem 1.5rem;
+      font-weight: 500;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .refresh-btn:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(67, 97, 238, 0.2);
+    }
+    
+    /* Responsive adjustments */
     @media (max-width: 992px) {
       .sidebar {
-        position: relative;
+        position: fixed;
         width: 100%;
         height: auto;
+        bottom: 0;
+        top: auto;
+        height: 70px;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
       }
+      
+      .brand {
+        display: none;
+      }
+      
+      .nav {
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-around;
+        gap: 0;
+      }
+      
+      .nav-link {
+        flex-direction: column;
+        font-size: 0.7rem;
+        padding: 0.5rem;
+        margin-bottom: 0;
+      }
+      
+      .nav-link i {
+        font-size: 1.2rem;
+        margin-bottom: 0.2rem;
+      }
+      
       .navbar, .content {
         margin-left: 0;
+        margin-bottom: 70px;
+      }
+      
+      .content {
+        padding: 1.5rem;
+      }
+      
+      #map {
+        height: 400px;
       }
     }
   </style>
@@ -178,131 +321,92 @@ $timestamp = $row['timestamp'] ?? 'N/A';
 
   <!-- Main Content -->
   <main class="content">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <h2 class="fw-bold mb-1">Live GPS Tracking</h2>
-        <p class="text-muted mb-0">Real-time location of your smart helmet</p>
-      </div>
-      <span class="badge bg-success">
-        <i class="fas fa-circle me-1"></i> Active
-      </span>
-    </div>
-
-    <div class="card mb-4">
+    <div class="card">
       <div class="card-body">
-        <div class="row">
-          <div class="col-md-4">
-            <h5 class="card-title mb-3"><i class="fas fa-info-circle me-2"></i>Location Details</h5>
-            <div class="mb-3">
-              <h6 class="text-muted mb-1">Coordinates</h6>
-              <p class="fs-5"><?= $latitude ?>, <?= $longitude ?></p>
-            </div>
-            <div class="mb-3">
-              <h6 class="text-muted mb-1">GPS Status</h6>
-              <p class="fs-5 gps-status <?= $gps_status === 'Active' ? 'active' : 'inactive' ?>">
-                <i class="fas fa-<?= $gps_status === 'Active' ? 'check-circle' : 'times-circle' ?> me-2"></i>
-                <?= htmlspecialchars($gps_status) ?>
-              </p>
-            </div>
-            <div class="mb-3">
-              <h6 class="text-muted mb-1">Last Updated</h6>
-              <p class="fs-5"><?= htmlspecialchars($timestamp) ?></p>
-            </div>
-            <button class="btn btn-primary mt-2">
-              <i class="fas fa-sync-alt me-2"></i>Refresh Location
-            </button>
+        <div class="map-header">
+          <div class="map-icon">
+            <i class="fas fa-map-marked-alt"></i>
           </div>
-          <div class="col-md-8">
-            <h5 class="card-title mb-3"><i class="fas fa-map-marked-alt me-2"></i>Location Map</h5>
-            <div id="map"></div>
+          <div>
+            <h2 class="mb-1">Live Helmet Location</h2>
+            <p class="text-muted mb-0">Real-time tracking of your smart helmet</p>
           </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="location-info">
+          <div class="row">
+            <div class="col-md-4">
+              <div class="info-item">
+                <div class="info-label">Coordinates</div>
+                <div class="info-value"><?= $latitude ?>, <?= $longitude ?></div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="info-item">
+                <div class="info-label">GPS Status</div>
+                <div class="info-value">
+                  <span class="gps-status <?= $gps_status === 'Active' ? 'active' : 'inactive' ?>">
+                    <i class="fas fa-<?= $gps_status === 'Active' ? 'check-circle' : 'times-circle' ?> me-1"></i>
+                    <?= htmlspecialchars($gps_status) ?>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="info-item">
+                <div class="info-label">Last Updated</div>
+                <div class="info-value"><?= htmlspecialchars($timestamp) ?></div>
+              </div>
+            </div>
+          </div>
+          <button class="refresh-btn mt-3" onclick="window.location.reload()">
+            <i class="fas fa-sync-alt"></i> Refresh Location
+          </button>
         </div>
       </div>
     </div>
-
-    <div class="alert alert-info">
-      <i class="fas fa-info-circle me-2"></i>
-      This map shows your helmet's last known location. The data updates every 15 seconds automatically.
-    </div>
   </main>
 
-  <!-- Google Maps API -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    function initMap() {
-      // Default to Bangladesh center if no coordinates
-      let lat = parseFloat("<?= $latitude ?>") || 23.6850;
-      let lng = parseFloat("<?= $longitude ?>") || 90.3563;
-      
-      const map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: lat, lng: lng },
-        zoom: 15,
-        mapTypeId: "roadmap",
-        styles: [
-          {
-            "featureType": "administrative",
-            "elementType": "labels.text.fill",
-            "stylers": [{ "color": "#444444" }]
-          },
-          {
-            "featureType": "landscape",
-            "elementType": "all",
-            "stylers": [{ "color": "#f2f2f2" }]
-          },
-          {
-            "featureType": "poi",
-            "elementType": "all",
-            "stylers": [{ "visibility": "off" }]
-          },
-          {
-            "featureType": "road",
-            "elementType": "all",
-            "stylers": [{ "saturation": -100 }, { "lightness": 45 }]
-          },
-          {
-            "featureType": "road.highway",
-            "elementType": "all",
-            "stylers": [{ "visibility": "simplified" }]
-          },
-          {
-            "featureType": "road.arterial",
-            "elementType": "labels.icon",
-            "stylers": [{ "visibility": "off" }]
-          },
-          {
-            "featureType": "transit",
-            "elementType": "all",
-            "stylers": [{ "visibility": "off" }]
-          },
-          {
-            "featureType": "water",
-            "elementType": "all",
-            "stylers": [{ "color": "#d4e6f4" }, { "visibility": "on" }]
-          }
-        ]
-      });
-
-      const marker = new google.maps.Marker({
-        position: { lat: lat, lng: lng },
-        map: map,
-        title: "Helmet Location",
-        icon: {
-          url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
-        }
-      });
-
-      const infoWindow = new google.maps.InfoWindow({
-        content: `<div style="padding: 10px;">
-          <h5 style="margin: 0 0 5px;">Helmet Location</h5>
-          <p style="margin: 0;">Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}</p>
-        </div>`
-      });
-      
-      marker.addListener("click", () => {
-        infoWindow.open(map, marker);
-      });
-      infoWindow.open(map, marker);
-    }
+    // Initialize map with default Dhaka coordinates
+    const lat = <?= $latitude ?>;
+    const lng = <?= $longitude ?>;
+    
+    const map = L.map('map').setView([lat, lng], 15);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    
+    // Custom helmet icon
+    const helmetIcon = L.icon({
+      iconUrl: '../assets/images/helmet-marker.png',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32]
+    });
+    
+    // Add marker with custom icon
+    const marker = L.marker([lat, lng], { icon: helmetIcon }).addTo(map)
+      .bindPopup('<b>Helmet Location</b><br>Last known position')
+      .openPopup();
+    
+    // Add circle around marker for accuracy visualization
+    L.circle([lat, lng], {
+      color: '#4361ee',
+      fillColor: '#eef2ff',
+      fillOpacity: 0.3,
+      radius: 50
+    }).addTo(map);
+    
+    // Auto-refresh every 15 seconds
+    setTimeout(function() {
+      window.location.reload();
+    }, 15000);
   </script>
 </body>
 </html>
