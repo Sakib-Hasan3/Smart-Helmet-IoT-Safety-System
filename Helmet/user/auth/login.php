@@ -1,3 +1,37 @@
+<?php
+session_start();
+require_once '../../backend/db.php';
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if ($email === '' || $password === '') {
+        $error = "Please fill in both email and password.";
+    } else {
+        // Look up the user by email
+        $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE email = ? LIMIT 1");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $res = $stmt->get_result();
+
+        if ($row = $res->fetch_assoc()) {
+            if (password_verify($password, $row['password'])) {
+                // Success: set session and go to dashboard
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $row['id'];
+                $_SESSION['username'] = $row['username'];
+                header("Location: ../dashboard.php");
+                exit;
+            }
+        }
+        // Generic error to avoid email enumeration
+        $error = "Invalid email or password.";
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -254,15 +288,34 @@
         <h1 class="login-title">Welcome Back</h1>
         <p class="login-subtitle">Sign in to continue to your dashboard</p>
 
-        <form>
+        <?php if (!empty($error)): ?>
+          <div class="alert alert-danger py-2"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
+        <form method="POST" autocomplete="off">
           <div class="mb-3">
             <label for="email" class="form-label">Email Address</label>
-            <input type="email" class="form-control" id="email" placeholder="walkopjs171@gmail.com">
+            <input
+              type="email"
+              class="form-control"
+              id="email"
+              name="email"
+              placeholder="you@example.com"
+              required
+              value="<?= isset($email) ? htmlspecialchars($email) : '' ?>"
+            >
           </div>
 
           <div class="mb-3 password-container">
             <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" placeholder="••••••••">
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              name="password"
+              placeholder="••••••••"
+              required
+            >
             <i class="fas fa-eye password-toggle" id="togglePassword"></i>
           </div>
 
@@ -275,7 +328,7 @@
           </div>
 
           <button type="submit" class="btn btn-login">
-            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+            <i class="fas fa-sign-in-alt me-2"></i>Login
           </button>
 
           <div class="divider"><span>OR</span></div>
@@ -293,7 +346,7 @@
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- Scripts (password-eye toggle only) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const togglePassword=document.querySelector('#togglePassword');
